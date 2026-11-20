@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard Pensyarah – Program Diploma Kejuruteraan Awam</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --neon-cyan:   #00f5ff;
+      --neon-purple: #b44aff;
+      --neon-pink:   #ff2d78;
+      --neon-blue:   #0080ff;
+      --neon-green:  #00ff9d;
+      --neon-yellow: #ffe600;
+      --bg-deep:     #060b14;
+      --bg-card:     #0d1526;
+      --bg-card2:    #111c35;
+      --border:      #1e3a5f;
+      --text-main:   #e2eaf8;
+      --text-muted:  #6b82a8;
+      --sidebar-w:   240px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Rajdhani', sans-serif;
+      background: var(--bg-deep);
+      color: var(--text-main);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Scanline overlay ── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,245,255,0.015) 2px,
+        rgba(0,245,255,0.015) 4px
+      );
+      pointer-events: none;
+      z-index: 999;
+    }
+
+    /* ── Animations ── */
+    @keyframes glow-pulse {
+      0%, 100% { box-shadow: 0 0 6px var(--neon-cyan), 0 0 12px rgba(0,245,255,.3); }
+      50%       { box-shadow: 0 0 14px var(--neon-cyan), 0 0 28px rgba(0,245,255,.6); }
+    }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes ticker {
+      from { transform: translateX(100%); }
+      to   { transform: translateX(-100%); }
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── HEADER ── */
+    header {
+      position: fixed; top: 0; left: 0; right: 0; height: 64px;
+      background: rgba(6,11,20,.92);
+      border-bottom: 1px solid var(--neon-cyan);
+      box-shadow: 0 2px 20px rgba(0,245,255,.25);
+      display: flex; align-items: center; padding: 0 24px;
+      z-index: 100; gap: 16px;
+    }
+    .header-logo {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 11px; font-weight: 900;
+      color: var(--neon-cyan);
+      text-shadow: 0 0 10px var(--neon-cyan);
+      line-height: 1.2;
+      text-transform: uppercase; letter-spacing: 1px;
+    }
+    .header-logo span { color: var(--neon-purple); display: block; font-size: 9px; letter-spacing: 2px; }
+    .header-sep { flex: 1; }
+    .header-badge {
+      font-size: 11px; color: var(--neon-green);
+      border: 1px solid var(--neon-green);
+      padding: 3px 10px; border-radius: 20px;
+      text-shadow: 0 0 6px var(--neon-green);
+      animation: glow-pulse 2.5s infinite;
+    }
+    .clock { font-family: 'Orbitron', sans-serif; font-size: 13px; color: var(--neon-yellow); letter-spacing: 2px; }
+
+    /* ── SIDEBAR ── */
+    .layout { display: flex; padding-top: 64px; min-height: 100vh; }
+
+    aside {
+      position: fixed; top: 64px; left: 0; bottom: 0;
+      width: var(--sidebar-w);
+      background: rgba(13,21,38,.95);
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      padding: 20px 0; z-index: 90; overflow-y: auto;
+    }
+    .nav-section { font-size: 10px; color: var(--text-muted); padding: 10px 20px 6px; letter-spacing: 2px; text-transform: uppercase; }
+    .nav-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 11px 20px; cursor: pointer;
+      font-size: 14px; font-weight: 500;
+      color: var(--text-muted); transition: all .2s;
+      border-left: 3px solid transparent;
+    }
+    .nav-item:hover { color: var(--text-main); background: rgba(0,245,255,.05); }
+    .nav-item.active {
+      color: var(--neon-cyan); border-left-color: var(--neon-cyan);
+      background: rgba(0,245,255,.08);
+      text-shadow: 0 0 8px rgba(0,245,255,.6);
+    }
+    .nav-item i { width: 18px; text-align: center; font-size: 15px; }
+    .nav-divider { height: 1px; background: var(--border); margin: 10px 20px; }
+
+    /* ── MAIN CONTENT ── */
+    main {
+      margin-left: var(--sidebar-w);
+      flex: 1; padding: 28px 28px 40px;
+      min-height: calc(100vh - 64px);
+    }
+
+    .section { display: none; animation: fadeInUp .35s ease; }
+    .section.active { display: block; }
+
+    .section-title {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 18px; font-weight: 700;
+      color: var(--neon-cyan);
+      text-shadow: 0 0 12px rgba(0,245,255,.5);
+      margin-bottom: 6px; letter-spacing: 1px;
+    }
+    .section-sub { font-size: 13px; color: var(--text-muted); margin-bottom: 24px; }
+
+    /* ── KPI CARDS ── */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+      gap: 16px; margin-bottom: 32px;
+    }
+    .kpi-card {
+      background: var(--bg-card); border-radius: 12px;
+      padding: 20px 18px; border: 1px solid;
+      transition: transform .2s, box-shadow .2s;
+      cursor: default;
+    }
+    .kpi-card:hover { transform: translateY(-4px); }
+    .kpi-card.c1 { border-color: var(--neon-cyan);   box-shadow: 0 0 10px rgba(0,245,255,.2); }
+    .kpi-card.c2 { border-color: var(--neon-purple); box-shadow: 0 0 10px rgba(180,74,255,.2); }
+    .kpi-card.c3 { border-color: var(--neon-pink);   box-shadow: 0 0 10px rgba(255,45,120,.2); }
+    .kpi-card.c4 { border-color: var(--neon-blue);   box-shadow: 0 0 10px rgba(0,128,255,.2); }
+    .kpi-card.c5 { border-color: var(--neon-green);  box-shadow: 0 0 10px rgba(0,255,157,.2); }
+    .kpi-card.c6 { border-color: var(--neon-yellow); box-shadow: 0 0 10px rgba(255,230,0,.2); }
+    .kpi-icon { font-size: 22px; margin-bottom: 10px; }
+    .kpi-card.c1 .kpi-icon { color: var(--neon-cyan); }
+    .kpi-card.c2 .kpi-icon { color: var(--neon-purple); }
+    .kpi-card.c3 .kpi-icon { color: var(--neon-pink); }
+    .kpi-card.c4 .kpi-icon { color: var(--neon-blue); }
+    .kpi-card.c5 .kpi-icon { color: var(--neon-green); }
+    .kpi-card.c6 .kpi-icon { color: var(--neon-yellow); }
+    .kpi-val { font-family: 'Orbitron', sans-serif; font-size: 32px; font-weight: 900; line-height: 1; }
+    .kpi-card.c1 .kpi-val { color: var(--neon-cyan); text-shadow: 0 0 10px rgba(0,245,255,.7); }
+    .kpi-card.c2 .kpi-val { color: var(--neon-purple); text-shadow: 0 0 10px rgba(180,74,255,.7); }
+    .kpi-card.c3 .kpi-val { color: var(--neon-pink); text-shadow: 0 0 10px rgba(255,45,120,.7); }
+    .kpi-card.c4 .kpi-val { color: var(--neon-blue); text-shadow: 0 0 10px rgba(0,128,255,.7); }
+    .kpi-card.c5 .kpi-val { color: var(--neon-green); text-shadow: 0 0 10px rgba(0,255,157,.7); }
+    .kpi-card.c6 .kpi-val { color: var(--neon-yellow); text-shadow: 0 0 10px rgba(255,230,0,.7); }
+    .kpi-label { font-size: 12px; color: var(--text-muted); margin-top: 6px; letter-spacing: .5px; text-transform: uppercase; }
+
+    /* Announcement ticker */
+    .ticker-wrap {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 8px; padding: 10px 0; overflow: hidden;
+      margin-bottom: 28px; position: relative;
+    }
+    .ticker-label {
+      position: absolute; left: 0; top: 0; bottom: 0;
+      background: var(--neon-cyan); color: #000;
+      font-family: 'Orbitron', sans-serif; font-size: 10px; font-weight: 700;
+      display: flex; align-items: center; padding: 0 14px;
+      letter-spacing: 1px; z-index: 1;
+    }
+    .ticker-text { font-size: 13px; color: var(--text-muted); padding-left: 100px; white-space: nowrap; animation: ticker 30s linear infinite; }
+
+    /* ── PENSYARAH GRID ── */
+    .filter-bar {
+      display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; align-items: center;
+    }
+    .search-box {
+      flex: 1; min-width: 200px;
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 8px; padding: 9px 14px 9px 36px;
+      color: var(--text-main); font-family: 'Rajdhani', sans-serif; font-size: 14px;
+      outline: none; transition: border-color .2s;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%236b82a8'%3E%3Cpath d='M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z' stroke='%236b82a8' stroke-width='2' fill='none'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: 10px center; background-size: 16px;
+    }
+    .search-box:focus { border-color: var(--neon-cyan); box-shadow: 0 0 8px rgba(0,245,255,.3); }
+    select.filter-select {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 8px; padding: 9px 14px; color: var(--text-main);
+      font-family: 'Rajdhani', sans-serif; font-size: 14px; outline: none; cursor: pointer;
+    }
+    select.filter-select:focus { border-color: var(--neon-purple); }
+
+    .pensyarah-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 18px;
+    }
+    .p-card {
+      background: var(--bg-card); border-radius: 14px;
+      border: 1px solid var(--border); padding: 22px 18px 18px;
+      cursor: pointer; transition: transform .25s, box-shadow .25s, border-color .25s;
+      position: relative; overflow: hidden;
+    }
+    .p-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: var(--accent-color, var(--neon-cyan));
+      box-shadow: 0 0 8px var(--accent-color, var(--neon-cyan));
+    }
+    .p-card:hover {
+      transform: translateY(-6px) scale(1.02);
+      box-shadow: 0 8px 30px rgba(0,245,255,.2);
+      border-color: var(--neon-cyan);
+    }
+    .avatar {
+      width: 58px; height: 58px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Orbitron', sans-serif; font-size: 18px; font-weight: 700;
+      margin: 0 auto 12px; border: 2px solid;
+    }
+    .p-name { font-size: 14px; font-weight: 600; text-align: center; margin-bottom: 4px; line-height: 1.3; }
+    .p-jawatan { font-size: 11px; color: var(--text-muted); text-align: center; margin-bottom: 10px; }
+    .p-badges { display: flex; gap: 5px; flex-wrap: wrap; justify-content: center; }
+    .badge {
+      font-size: 10px; padding: 2px 8px; border-radius: 20px;
+      border: 1px solid; font-weight: 600; letter-spacing: .3px;
+    }
+    .badge-phd    { border-color: var(--neon-purple); color: var(--neon-purple); }
+    .badge-master { border-color: var(--neon-cyan);   color: var(--neon-cyan); }
+    .badge-degree { border-color: var(--neon-blue);   color: var(--neon-blue); }
+    .badge-field  { border-color: var(--neon-green);  color: var(--neon-green); }
+    .badge-pink   { border-color: var(--neon-pink);   color: var(--neon-pink); }
+
+    /* ── MODAL ── */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,.8); backdrop-filter: blur(4px);
+      z-index: 500; align-items: center; justify-content: center; padding: 20px;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: rgba(13,21,38,.97);
+      border: 1px solid var(--neon-cyan);
+      box-shadow: 0 0 40px rgba(0,245,255,.3), inset 0 0 40px rgba(0,245,255,.03);
+      border-radius: 16px; max-width: 680px; width: 100%;
+      max-height: 85vh; overflow-y: auto; padding: 28px;
+      animation: fadeInUp .3s ease;
+    }
+    .modal-header { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; }
+    .modal-avatar { width: 70px; height: 70px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: 'Orbitron', sans-serif; font-size: 22px; font-weight: 700; border: 2px solid; flex-shrink: 0; }
+    .modal-name { font-family: 'Orbitron', sans-serif; font-size: 16px; font-weight: 700; color: var(--neon-cyan); }
+    .modal-jawatan { font-size: 13px; color: var(--text-muted); margin-top: 3px; }
+    .modal-close { margin-left: auto; background: none; border: 1px solid var(--border); color: var(--text-muted); border-radius: 8px; padding: 6px 12px; cursor: pointer; font-size: 13px; transition: all .2s; }
+    .modal-close:hover { border-color: var(--neon-pink); color: var(--neon-pink); }
+
+    .modal-tabs { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 1px solid var(--border); }
+    .m-tab { padding: 8px 16px; font-size: 13px; font-weight: 500; cursor: pointer; border-bottom: 2px solid transparent; color: var(--text-muted); transition: all .2s; }
+    .m-tab.active { color: var(--neon-cyan); border-bottom-color: var(--neon-cyan); }
+    .m-tab-content { display: none; }
+    .m-tab-content.active { display: block; }
+
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .info-item label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; }
+    .info-item p { font-size: 14px; font-weight: 500; margin-top: 2px; }
+    .info-item.full { grid-column: 1/-1; }
+    .pill-list { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+    .pill { background: rgba(0,245,255,.08); border: 1px solid rgba(0,245,255,.25); border-radius: 20px; padding: 3px 10px; font-size: 12px; color: var(--neon-cyan); }
+
+    /* ── CHARTS ── */
+    .chart-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+    .chart-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 20px; }
+    .chart-title { font-family: 'Orbitron', sans-serif; font-size: 12px; color: var(--neon-cyan); margin-bottom: 14px; letter-spacing: 1px; text-transform: uppercase; }
+    .chart-wrap { position: relative; height: 220px; }
+
+    /* ── TABLE VIEW ── */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    thead th { background: var(--bg-card2); color: var(--neon-cyan); font-family: 'Orbitron', sans-serif; font-size: 11px; letter-spacing: 1px; padding: 11px 14px; text-align: left; border-bottom: 1px solid var(--neon-cyan); }
+    tbody tr { border-bottom: 1px solid var(--border); transition: background .15s; }
+    tbody tr:hover { background: rgba(0,245,255,.04); }
+    tbody td { padding: 10px 14px; color: var(--text-main); vertical-align: middle; }
+
+    /* ── FOOTER ── */
+    footer {
+      margin-left: var(--sidebar-w); background: rgba(13,21,38,.8);
+      border-top: 1px solid var(--border); padding: 14px 28px;
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 12px; color: var(--text-muted);
+    }
+    .footer-brand { font-family: 'Orbitron', sans-serif; font-size: 10px; color: var(--neon-purple); letter-spacing: 1px; }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 900px) {
+      aside { width: 56px; }
+      .nav-item span, .nav-section, .nav-divider { display: none; }
+      main, footer { margin-left: 56px; }
+      .pensyarah-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+    }
+    @media (max-width: 600px) {
+      main { padding: 16px 14px 32px; }
+      .info-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div style="color:var(--neon-cyan);font-size:22px;margin-right:4px;"><i class="fas fa-hard-hat"></i></div>
+  <div class="header-logo">
+    Program Diploma Kejuruteraan Awam
+    <span>Politeknik Port Dickson · Negeri Sembilan</span>
+  </div>
+  <div class="header-sep"></div>
+  <div class="header-badge"><i class="fas fa-circle" style="font-size:7px;margin-right:5px;"></i>SISTEM AKTIF</div>
+  <div class="clock" id="clock">--:--:--</div>
+</header>
+
+<!-- LAYOUT -->
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside>
+    <div class="nav-section">Menu</div>
+    <div class="nav-item active" data-target="ringkasan">
+      <i class="fas fa-gauge-high"></i><span>Ringkasan</span>
+    </div>
+    <div class="nav-item" data-target="profil">
+      <i class="fas fa-id-card"></i><span>Profil Pensyarah</span>
+    </div>
+    <div class="nav-item" data-target="statistik">
+      <i class="fas fa-chart-pie"></i><span>Statistik</span>
+    </div>
+    <div class="nav-item" data-target="jadual">
+      <i class="fas fa-table-list"></i><span>Jadual Data</span>
+    </div>
+    <div class="nav-divider"></div>
+    <div class="nav-section">Info</div>
+    <div class="nav-item" data-target="tentang">
+      <i class="fas fa-circle-info"></i><span>Tentang</span>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main>
+
+    <!-- ── RINGKASAN ── -->
+    <section id="ringkasan" class="section active">
+      <p class="section-title"><i class="fas fa-gauge-high" style="margin-right:8px;"></i>Ringkasan Jabatan</p>
+      <p class="section-sub">Gambaran keseluruhan sumber tenaga pengajar Program Diploma Kejuruteraan Awam</p>
+
+      <div class="ticker-wrap">
+        <span class="ticker-label">INFO</span>
+        <div class="ticker-text" id="ticker-text">Memuatkan maklumat...</div>
+      </div>
+
+      <div class="kpi-grid" id="kpiGrid"></div>
+
+      <!-- Mini chart preview in ringkasan -->
+      <p class="section-title" style="font-size:14px;margin-top:4px;"><i class="fas fa-chart-bar" style="margin-right:8px;"></i>Ringkasan Visual</p>
+      <div class="chart-grid" style="margin-top:16px;">
+        <div class="chart-card">
+          <div class="chart-title">Kelayakan Akademik</div>
+          <div class="chart-wrap"><canvas id="chartKelayakanHome"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Nisbah Jantina</div>
+          <div class="chart-wrap"><canvas id="chartJantinaHome"></canvas></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── PROFIL ── -->
+    <section id="profil" class="section">
+      <p class="section-title"><i class="fas fa-id-card" style="margin-right:8px;"></i>Profil Pensyarah</p>
+      <p class="section-sub">Klik pada kad pensyarah untuk melihat maklumat terperinci</p>
+      <div class="filter-bar">
+        <input type="text" class="search-box" id="searchInput" placeholder="Cari nama pensyarah..." oninput="filterPensyarah()" />
+        <select class="filter-select" id="filterKelayakan" onchange="filterPensyarah()">
+          <option value="">Semua Kelayakan</option>
+          <option value="PhD">PhD</option>
+          <option value="Master">Master</option>
+          <option value="Degree">Degree</option>
+        </select>
+        <select class="filter-select" id="filterBidang" onchange="filterPensyarah()">
+          <option value="">Semua Bidang</option>
+          <option value="Struktur">Struktur & Bahan</option>
+          <option value="Hidraulik">Hidraulik</option>
+          <option value="Geoteknik">Geoteknik</option>
+          <option value="Ukur Bahan">Ukur Bahan</option>
+          <option value="BIM">BIM / CAD</option>
+        </select>
+        <select class="filter-select" id="filterJantina" onchange="filterPensyarah()">
+          <option value="">Semua Jantina</option>
+          <option value="Lelaki">Lelaki</option>
+          <option value="Perempuan">Perempuan</option>
+        </select>
+      </div>
+      <div class="pensyarah-grid" id="pensyarahGrid"></div>
+    </section>
+
+    <!-- ── STATISTIK ── -->
+    <section id="statistik" class="section">
+      <p class="section-title"><i class="fas fa-chart-pie" style="margin-right:8px;"></i>Statistik Pensyarah</p>
+      <p class="section-sub">Visualisasi data pensyarah Program Diploma Kejuruteraan Awam</p>
+      <div class="chart-grid">
+        <div class="chart-card">
+          <div class="chart-title">Kelayakan Akademik</div>
+          <div class="chart-wrap"><canvas id="chartKelayakan"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Nisbah Jantina</div>
+          <div class="chart-wrap"><canvas id="chartJantina"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Pengkhususan Bidang</div>
+          <div class="chart-wrap"><canvas id="chartBidang"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Gred Jawatan</div>
+          <div class="chart-wrap"><canvas id="chartGred"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Tahun Mula Berkhidmat</div>
+          <div class="chart-wrap"><canvas id="chartTahun"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Status Jawatan</div>
+          <div class="chart-wrap"><canvas id="chartStatus"></canvas></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── JADUAL ── -->
+    <section id="jadual" class="section">
+      <p class="section-title"><i class="fas fa-table-list" style="margin-right:8px;"></i>Jadual Data Pensyarah</p>
+      <p class="section-sub">Semua maklumat pensyarah dalam format jadual</p>
+      <div class="table-wrap">
+        <table id="pensyarahTable">
+          <thead>
+            <tr>
+              <th>#</th><th>Nama</th><th>Jawatan</th><th>Gred</th>
+              <th>Kelayakan</th><th>Pengkhususan</th><th>Jantina</th><th>Mula Berkhidmat</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ── TENTANG ── -->
+    <section id="tentang" class="section">
+      <p class="section-title"><i class="fas fa-circle-info" style="margin-right:8px;"></i>Tentang Dashboard</p>
+      <p class="section-sub">Maklumat sistem dan panduan pengguna</p>
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:28px;max-width:600px;">
+        <p style="font-family:'Orbitron',sans-serif;font-size:14px;color:var(--neon-cyan);margin-bottom:16px;">PROGRAM DIPLOMA KEJURUTERAAN AWAM</p>
+        <p style="color:var(--text-muted);font-size:14px;line-height:1.8;margin-bottom:16px;">
+          Dashboard ini memaparkan maklumat pensyarah yang berkhidmat di bawah Program Diploma Kejuruteraan Awam, Politeknik Port Dickson (PPD), Negeri Sembilan.
+        </p>
+        <div class="info-grid" style="margin-top:16px;">
+          <div class="info-item"><label>Politeknik</label><p>Politeknik Port Dickson (PPD)</p></div>
+          <div class="info-item"><label>Program</label><p>Diploma Kejuruteraan Awam</p></div>
+          <div class="info-item"><label>Kod Program</label><p>DKA</p></div>
+          <div class="info-item"><label>Tahap MQF</label><p>Tahap 4</p></div>
+          <div class="info-item full"><label>Versi Dashboard</label><p>v1.0 — Data Dummy (Sila gantikan dengan data sebenar dalam array <code style="color:var(--neon-green)">pensyarahData</code>)</p></div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div>Program Diploma Kejuruteraan Awam · Politeknik Port Dickson</div>
+  <div class="footer-brand">SISTEM MAKLUMAT PENSYARAH © 2024</div>
+</footer>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modalOverlay" onclick="handleOverlayClick(event)">
+  <div class="modal" id="modalBox">
+    <div class="modal-header">
+      <div class="modal-avatar" id="modalAvatar"></div>
+      <div>
+        <div class="modal-name" id="modalName"></div>
+        <div class="modal-jawatan" id="modalJawatan"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal()"><i class="fas fa-xmark"></i> Tutup</button>
+    </div>
+    <div class="modal-tabs">
+      <div class="m-tab active" onclick="switchTab(0)">Maklumat Am</div>
+      <div class="m-tab" onclick="switchTab(1)">Pengajaran</div>
+      <div class="m-tab" onclick="switchTab(2)">Profesional</div>
+    </div>
+    <div class="m-tab-content active" id="tabAm"></div>
+    <div class="m-tab-content" id="tabAjar"></div>
+    <div class="m-tab-content" id="tabPro"></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════
+//  DATA PENSYARAH — gantikan dengan data sebenar
+// ═══════════════════════════════════════════════════
+const pensyarahData = [
+  {
+    id: 1, nama: "Dr. Ahmad Faizal bin Mohd Noor", jawatan: "Pensyarah Kanan", gred: "DH52",
+    jantina: "Lelaki", kelayakan: "PhD", institusi: "Universiti Teknologi Malaysia",
+    tahun_mula: 2010, pengkhususan: "Struktur", status: "Tetap",
+    subjek: ["Mekanik Struktur", "Analisis Struktur", "Rekabentuk Konkrit Bertetulang"],
+    keahlian: ["BEM", "IEM", "CREAM"],
+    latihan: ["Latihan BIM Autodesk 2023", "Kursus Penilaian Prestasi 2022"],
+    email: "ahmadfarizal@ppd.edu.my", telefon: "06-6523XXX", inisial: "AF"
+  },
+  {
+    id: 2, nama: "Pn. Nurul Ain binti Zulkifli", jawatan: "Pensyarah", gred: "DH44",
+    jantina: "Perempuan", kelayakan: "Master", institusi: "Universiti Putra Malaysia",
+    tahun_mula: 2015, pengkhususan: "Hidraulik", status: "Tetap",
+    subjek: ["Hidraulik Asas", "Hidrologi", "Rekabentuk Saliran"],
+    keahlian: ["BEM", "CREAM"],
+    latihan: ["Kursus AutoCAD Civil 3D 2023", "Bengkel Pengurusan Banjir 2022"],
+    email: "nurulain@ppd.edu.my", telefon: "06-6523XXX", inisial: "NA"
+  },
+  {
+    id: 3, nama: "En. Mohd Hafizi bin Hamzah", jawatan: "Pensyarah", gred: "DH44",
+    jantina: "Lelaki", kelayakan: "Master", institusi: "Universiti Malaya",
+    tahun_mula: 2013, pengkhususan: "Geoteknik", status: "Tetap",
+    subjek: ["Mekanik Tanah", "Asas Kejuruteraan", "Penyiasatan Tapak"],
+    keahlian: ["BEM", "IEM"],
+    latihan: ["Kursus Ujian Tanah Lanjutan 2023", "Seminar Geoteknik Antarabangsa 2022"],
+    email: "hafizi@ppd.edu.my", telefon: "06-6523XXX", inisial: "MH"
+  },
+  {
+    id: 4, nama: "Dr. Siti Norzahra binti Hassan", jawatan: "Pensyarah Kanan", gred: "DH52",
+    jantina: "Perempuan", kelayakan: "PhD", institusi: "Universiti Sains Malaysia",
+    tahun_mula: 2009, pengkhususan: "Ukur Bahan", status: "Tetap",
+    subjek: ["Ukur Bahan", "Pengurusan Projek", "Kontrak Pembinaan"],
+    keahlian: ["RISM", "CREAM", "BEM"],
+    latihan: ["Kursus BIM QS 2023", "Kursus Pengurusan Risiko Projek 2022"],
+    email: "norzahra@ppd.edu.my", telefon: "06-6523XXX", inisial: "SN"
+  },
+  {
+    id: 5, nama: "En. Khairul Azman bin Ibrahim", jawatan: "Pensyarah", gred: "DH44",
+    jantina: "Lelaki", kelayakan: "Master", institusi: "Universiti Teknologi MARA",
+    tahun_mula: 2017, pengkhususan: "BIM", status: "Tetap",
+    subjek: ["Lukisan Kejuruteraan Awam", "BIM Asas", "AutoCAD & Revit"],
+    keahlian: ["BEM", "Autodesk Certified"],
+    latihan: ["Autodesk BIM 360 2023", "Kursus Revit Structure 2022"],
+    email: "khairulazman@ppd.edu.my", telefon: "06-6523XXX", inisial: "KA"
+  },
+  {
+    id: 6, nama: "Pn. Farah Diyana binti Ramli", jawatan: "Pensyarah", gred: "DH41",
+    jantina: "Perempuan", kelayakan: "Master", institusi: "Universiti Teknologi Malaysia",
+    tahun_mula: 2019, pengkhususan: "Struktur", status: "Tetap",
+    subjek: ["Bahan Binaan", "Teknologi Konkrit", "Ujian Bahan"],
+    keahlian: ["BEM", "CREAM"],
+    latihan: ["Kursus Ujian Bahan 2023", "Bengkel Green Building 2022"],
+    email: "farahdiyana@ppd.edu.my", telefon: "06-6523XXX", inisial: "FD"
+  },
+  {
+    id: 7, nama: "En. Zulkarnain bin Osman", jawatan: "Pensyarah", gred: "DH44",
+    jantina: "Lelaki", kelayakan: "Degree", institusi: "Universiti Teknologi Malaysia",
+    tahun_mula: 2008, pengkhususan: "Hidraulik", status: "Tetap",
+    subjek: ["Hidraulik Lanjutan", "Reka Bentuk Paip", "Pengairan & Perparitan"],
+    keahlian: ["BEM", "IEM"],
+    latihan: ["Kursus Water Supply Design 2023", "Seminar IEM 2022"],
+    email: "zulkarnain@ppd.edu.my", telefon: "06-6523XXX", inisial: "ZO"
+  },
+  {
+    id: 8, nama: "Pn. Hafizah binti Mohd Yusof", jawatan: "Pensyarah", gred: "DH41",
+    jantina: "Perempuan", kelayakan: "Master", institusi: "Universiti Putra Malaysia",
+    tahun_mula: 2020, pengkhususan: "Geoteknik", status: "Kontrak",
+    subjek: ["Geologi Kejuruteraan", "Mekanik Tanah Lanjutan"],
+    keahlian: ["BEM"],
+    latihan: ["Kursus Geoteknik Lanjutan 2023"],
+    email: "hafizah@ppd.edu.my", telefon: "06-6523XXX", inisial: "HY"
+  },
+  {
+    id: 9, nama: "En. Fadzilah bin Mohd Salleh", jawatan: "Pensyarah Kanan", gred: "DH48",
+    jantina: "Lelaki", kelayakan: "Master", institusi: "Universiti Malaya",
+    tahun_mula: 2005, pengkhususan: "Ukur Bahan", status: "Tetap",
+    subjek: ["Pengurusan Kontrak", "Penilaian Bangunan", "Ukur Kejuruteraan"],
+    keahlian: ["RISM", "BEM", "CREAM"],
+    latihan: ["Kursus Penilaian Aset 2023", "Kursus NEC Contract 2022"],
+    email: "fadzilah@ppd.edu.my", telefon: "06-6523XXX", inisial: "FM"
+  },
+  {
+    id: 10, nama: "Pn. Norhayati binti Abdul Razak", jawatan: "Pensyarah", gred: "DH44",
+    jantina: "Perempuan", kelayakan: "Master", institusi: "Universiti Teknologi MARA",
+    tahun_mula: 2016, pengkhususan: "Struktur", status: "Tetap",
+    subjek: ["Rekabentuk Keluli", "Statik & Dinamik", "Mekanik Pepejal"],
+    keahlian: ["BEM", "IEM"],
+    latihan: ["Kursus Eurocode 3 2023", "Bengkel Rekabentuk Keluli 2022"],
+    email: "norhayati@ppd.edu.my", telefon: "06-6523XXX", inisial: "NR"
+  },
+  {
+    id: 11, nama: "En. Amirul Hakim bin Baharudin", jawatan: "Pensyarah", gred: "DH41",
+    jantina: "Lelaki", kelayakan: "Degree", institusi: "Universiti Teknologi MARA",
+    tahun_mula: 2021, pengkhususan: "BIM", status: "Kontrak",
+    subjek: ["AutoCAD 2D & 3D", "Lukisan Teknikal", "Pengenalan BIM"],
+    keahlian: ["Autodesk Certified"],
+    latihan: ["Kursus Revit Architecture 2023", "Kursus Civil 3D 2022"],
+    email: "amirulhakim@ppd.edu.my", telefon: "06-6523XXX", inisial: "AH"
+  },
+  {
+    id: 12, nama: "Dr. Mohd Ridhwan bin Zakaria", jawatan: "Pensyarah Kanan", gred: "DH52",
+    jantina: "Lelaki", kelayakan: "PhD", institusi: "Universiti Kebangsaan Malaysia",
+    tahun_mula: 2011, pengkhususan: "Hidraulik", status: "Tetap",
+    subjek: ["Hidrologi Lanjutan", "Pengurusan Sumber Air", "Modeling Hidraulik"],
+    keahlian: ["BEM", "IEM", "CREAM"],
+    latihan: ["Kursus HEC-RAS 2023", "Kursus SWMM Modeling 2022"],
+    email: "ridhwan@ppd.edu.my", telefon: "06-6523XXX", inisial: "MR"
+  },
+  {
+    id: 13, nama: "Pn. Suraya binti Kamaruddin", jawatan: "Pensyarah", gred: "DH44",
+    jantina: "Perempuan", kelayakan: "Master", institusi: "Universiti Teknologi Malaysia",
+    tahun_mula: 2014, pengkhususan: "Geoteknik", status: "Tetap",
+    subjek: ["Kejuruteraan Cerun", "Pemadatan Tanah", "Pampatan Tanah"],
+    keahlian: ["BEM", "IEM"],
+    latihan: ["Kursus Slope Stability Analysis 2023", "Seminar Landslide 2022"],
+    email: "suraya@ppd.edu.my", telefon: "06-6523XXX", inisial: "SK"
+  },
+  {
+    id: 14, nama: "En. Hazwan bin Mohd Nasir", jawatan: "Pensyarah", gred: "DH41",
+    jantina: "Lelaki", kelayakan: "Degree", institusi: "Universiti Putra Malaysia",
+    tahun_mula: 2022, pengkhususan: "Struktur", status: "Kontrak",
+    subjek: ["Matematik Kejuruteraan", "Fizik Kejuruteraan", "Mekanik Asas"],
+    keahlian: ["BEM"],
+    latihan: ["Kursus Pedagogi TVET 2023"],
+    email: "hazwan@ppd.edu.my", telefon: "06-6523XXX", inisial: "HN"
+  },
+  {
+    id: 15, nama: "Pn. Wan Norsyafiqah binti Wan Ismail", jawatan: "Pensyarah", gred: "DH44",
+    jantina: "Perempuan", kelayakan: "Master", institusi: "Universiti Malaya",
+    tahun_mula: 2018, pengkhususan: "Ukur Bahan", status: "Tetap",
+    subjek: ["Spesifikasi Pembinaan", "Tender & Sebut Harga", "Kawalan Kos Projek"],
+    keahlian: ["RISM", "CREAM"],
+    latihan: ["Kursus e-Procurement 2023", "Kursus NRM1 & NRM2 2022"],
+    email: "norsyafiqah@ppd.edu.my", telefon: "06-6523XXX", inisial: "WN"
+  }
+];
+
+// Avatar colors cycling through neon palette
+const avatarColors = [
+  { bg: 'rgba(0,245,255,.12)', border: '#00f5ff', text: '#00f5ff' },
+  { bg: 'rgba(180,74,255,.12)', border: '#b44aff', text: '#b44aff' },
+  { bg: 'rgba(255,45,120,.12)', border: '#ff2d78', text: '#ff2d78' },
+  { bg: 'rgba(0,128,255,.12)', border: '#0080ff', text: '#0080ff' },
+  { bg: 'rgba(0,255,157,.12)', border: '#00ff9d', text: '#00ff9d' },
+  { bg: 'rgba(255,230,0,.12)', border: '#ffe600', text: '#ffe600' },
+];
+
+const NEON = ['#00f5ff','#b44aff','#ff2d78','#0080ff','#00ff9d','#ffe600'];
+
+// ── CLOCK ──
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toLocaleTimeString('ms-MY', { hour12: false });
+}
+setInterval(updateClock, 1000); updateClock();
+
+// ── NAVIGATION ──
+document.querySelectorAll('.nav-item').forEach(item => {
+  item.addEventListener('click', () => {
+    document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+    item.classList.add('active');
+    const target = item.dataset.target;
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    document.getElementById(target).classList.add('active');
+    if (target === 'statistik') setTimeout(renderCharts, 50);
+  });
+});
+
+// ── KPI CARDS ──
+function renderKPICards() {
+  const total   = pensyarahData.length;
+  const phd     = pensyarahData.filter(p => p.kelayakan === 'PhD').length;
+  const master  = pensyarahData.filter(p => p.kelayakan === 'Master').length;
+  const tetap   = pensyarahData.filter(p => p.status === 'Tetap').length;
+  const wanita  = pensyarahData.filter(p => p.jantina === 'Perempuan').length;
+  const avgExp  = Math.round(pensyarahData.reduce((s, p) => s + (2024 - p.tahun_mula), 0) / total);
+
+  const cards = [
+    { icon: 'fa-users', val: total,  label: 'Jumlah Pensyarah',  cls: 'c1' },
+    { icon: 'fa-graduation-cap', val: phd, label: 'Pensyarah PhD', cls: 'c2' },
+    { icon: 'fa-scroll', val: master, label: 'Pensyarah Master', cls: 'c3' },
+    { icon: 'fa-briefcase', val: tetap, label: 'Pensyarah Tetap', cls: 'c4' },
+    { icon: 'fa-venus', val: wanita, label: 'Pensyarah Wanita',  cls: 'c5' },
+    { icon: 'fa-clock-rotate-left', val: avgExp, label: 'Purata Tahun Pengalaman', cls: 'c6' },
+  ];
+
+  const grid = document.getElementById('kpiGrid');
+  grid.innerHTML = cards.map(c => `
+    <div class="kpi-card ${c.cls}">
+      <div class="kpi-icon"><i class="fas ${c.icon}"></i></div>
+      <div class="kpi-val" data-target="${c.val}">0</div>
+      <div class="kpi-label">${c.label}</div>
+    </div>`).join('');
+
+  // counter animation
+  grid.querySelectorAll('.kpi-val').forEach(el => {
+    const target = +el.dataset.target;
+    let curr = 0;
+    const step = Math.max(1, Math.ceil(target / 40));
+    const timer = setInterval(() => {
+      curr = Math.min(curr + step, target);
+      el.textContent = curr;
+      if (curr >= target) clearInterval(timer);
+    }, 30);
+  });
+}
+
+// ── TICKER ──
+function renderTicker() {
+  const total  = pensyarahData.length;
+  const phd    = pensyarahData.filter(p => p.kelayakan === 'PhD').length;
+  const tetap  = pensyarahData.filter(p => p.status === 'Tetap').length;
+  const wanita = pensyarahData.filter(p => p.jantina === 'Perempuan').length;
+  document.getElementById('ticker-text').textContent =
+    `✦ Jumlah Pensyarah: ${total} orang  ✦  Pensyarah PhD: ${phd} orang  ✦  Pensyarah Tetap: ${tetap} orang  ✦  Pensyarah Wanita: ${wanita} orang  ✦  Program: Diploma Kejuruteraan Awam  ✦  Politeknik Port Dickson, Negeri Sembilan  ✦`;
+}
+
+// ── PENSYARAH GRID ──
+function getKelayahanBadgeClass(k) {
+  if (k === 'PhD')    return 'badge-phd';
+  if (k === 'Master') return 'badge-master';
+  return 'badge-degree';
+}
+
+function renderPensyarahGrid(data) {
+  const grid = document.getElementById('pensyarahGrid');
+  if (!data || !data.length) {
+    grid.innerHTML = '<p style="color:var(--text-muted);font-size:14px;padding:20px;">Tiada rekod ditemui.</p>';
+    return;
+  }
+  grid.innerHTML = data.map((p, i) => {
+    const ac = avatarColors[i % avatarColors.length];
+    return `
+    <div class="p-card" style="--accent-color:${ac.border}" onclick="openModal(${p.id})">
+      <div class="avatar" style="background:${ac.bg};border-color:${ac.border};color:${ac.text}">${p.inisial}</div>
+      <div class="p-name">${p.nama}</div>
+      <div class="p-jawatan">${p.jawatan} · ${p.gred}</div>
+      <div class="p-badges">
+        <span class="badge ${getKelayahanBadgeClass(p.kelayakan)}">${p.kelayakan}</span>
+        <span class="badge badge-field">${p.pengkhususan}</span>
+        ${p.status === 'Kontrak' ? '<span class="badge badge-pink">Kontrak</span>' : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function filterPensyarah() {
+  const q       = document.getElementById('searchInput').value.toLowerCase();
+  const kelayak = document.getElementById('filterKelayakan').value;
+  const bidang  = document.getElementById('filterBidang').value;
+  const jantina = document.getElementById('filterJantina').value;
+
+  const filtered = pensyarahData.filter(p =>
+    (!q       || p.nama.toLowerCase().includes(q)) &&
+    (!kelayak || p.kelayakan === kelayak) &&
+    (!bidang  || p.pengkhususan.includes(bidang)) &&
+    (!jantina || p.jantina === jantina)
+  );
+  renderPensyarahGrid(filtered);
+}
+
+// ── MODAL ──
+let currentTabs = [null, null, null];
+
+function openModal(id) {
+  const p = pensyarahData.find(x => x.id === id);
+  if (!p) return;
+  const idx = pensyarahData.indexOf(p);
+  const ac  = avatarColors[idx % avatarColors.length];
+
+  document.getElementById('modalAvatar').textContent = p.inisial;
+  document.getElementById('modalAvatar').style.cssText =
+    `background:${ac.bg};border-color:${ac.border};color:${ac.text}`;
+  document.getElementById('modalName').textContent = p.nama;
+  document.getElementById('modalJawatan').textContent = `${p.jawatan} · Gred ${p.gred} · ${p.status}`;
+
+  document.getElementById('tabAm').innerHTML = `
+    <div class="info-grid">
+      <div class="info-item"><label>Jantina</label><p>${p.jantina}</p></div>
+      <div class="info-item"><label>Kelayakan</label><p>${p.kelayakan}</p></div>
+      <div class="info-item full"><label>Institusi</label><p>${p.institusi}</p></div>
+      <div class="info-item"><label>Tahun Mula Berkhidmat</label><p>${p.tahun_mula}</p></div>
+      <div class="info-item"><label>Pengalaman</label><p>${2024 - p.tahun_mula} tahun</p></div>
+      <div class="info-item"><label>E-mel</label><p>${p.email}</p></div>
+      <div class="info-item"><label>Telefon</label><p>${p.telefon}</p></div>
+      <div class="info-item full"><label>Pengkhususan</label><p>${p.pengkhususan}</p></div>
+    </div>`;
+
+  document.getElementById('tabAjar').innerHTML = `
+    <div class="info-item full" style="margin-bottom:16px;">
+      <label>Subjek yang Diajar</label>
+      <div class="pill-list">${p.subjek.map(s => `<span class="pill">${s}</span>`).join('')}</div>
+    </div>`;
+
+  document.getElementById('tabPro').innerHTML = `
+    <div class="info-item full" style="margin-bottom:16px;">
+      <label>Keahlian Profesional</label>
+      <div class="pill-list">${p.keahlian.map(k => `<span class="pill" style="border-color:var(--neon-purple);color:var(--neon-purple)">${k}</span>`).join('')}</div>
+    </div>
+    <div class="info-item full">
+      <label>Latihan & Kursus</label>
+      <div class="pill-list">${p.latihan.map(l => `<span class="pill" style="border-color:var(--neon-green);color:var(--neon-green)">${l}</span>`).join('')}</div>
+    </div>`;
+
+  // reset tabs
+  document.querySelectorAll('.m-tab').forEach((t, i) => t.classList.toggle('active', i === 0));
+  document.querySelectorAll('.m-tab-content').forEach((c, i) => c.classList.toggle('active', i === 0));
+  document.getElementById('modalOverlay').classList.add('open');
+}
+
+function closeModal() { document.getElementById('modalOverlay').classList.remove('open'); }
+function handleOverlayClick(e) { if (e.target === document.getElementById('modalOverlay')) closeModal(); }
+
+function switchTab(i) {
+  document.querySelectorAll('.m-tab').forEach((t, idx) => t.classList.toggle('active', idx === i));
+  document.querySelectorAll('.m-tab-content').forEach((c, idx) => c.classList.toggle('active', idx === i));
+}
+
+// ── TABLE ──
+function renderTable() {
+  document.getElementById('tableBody').innerHTML = pensyarahData.map((p, i) => `
+    <tr>
+      <td style="color:var(--text-muted)">${i + 1}</td>
+      <td style="font-weight:600">${p.nama}</td>
+      <td>${p.jawatan}</td>
+      <td><span class="badge ${getKelayahanBadgeClass(p.kelayakan)}" style="font-size:11px">${p.gred}</span></td>
+      <td><span class="badge ${getKelayahanBadgeClass(p.kelayakan)}">${p.kelayakan}</span></td>
+      <td><span class="badge badge-field">${p.pengkhususan}</span></td>
+      <td>${p.jantina}</td>
+      <td>${p.tahun_mula}</td>
+    </tr>`).join('');
+}
+
+// ── CHARTS ──
+const chartInstances = {};
+
+function countBy(key) {
+  return pensyarahData.reduce((acc, p) => {
+    acc[p[key]] = (acc[p[key]] || 0) + 1; return acc;
+  }, {});
+}
+
+function makeChart(id, type, labels, data, colors) {
+  if (chartInstances[id]) { chartInstances[id].destroy(); }
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+  chartInstances[id] = new Chart(ctx, {
+    type,
+    data: {
+      labels,
+      datasets: [{ data, backgroundColor: colors, borderColor: colors, borderWidth: type === 'bar' ? 0 : 2, hoverOffset: 6 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          labels: { color: '#8fa8c8', font: { family: 'Rajdhani', size: 12 }, boxWidth: 14 }
+        },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+              const pct = ((ctx.parsed / total) * 100).toFixed(1);
+              return ` ${ctx.parsed} orang (${pct}%)`;
+            }
+          }
+        }
+      },
+      scales: type === 'bar' ? {
+        x: { ticks: { color: '#6b82a8', font: { family: 'Rajdhani' } }, grid: { color: 'rgba(255,255,255,.04)' } },
+        y: { ticks: { color: '#6b82a8', font: { family: 'Rajdhani' } }, grid: { color: 'rgba(255,255,255,.04)' }, beginAtZero: true, precision: 0 }
+      } : {}
+    }
+  });
+}
+
+function renderCharts() {
+  Chart.defaults.color = '#6b82a8';
+
+  const kelayakan = countBy('kelayakan');
+  const jantina   = countBy('jantina');
+  const bidang    = countBy('pengkhususan');
+  const gred      = countBy('gred');
+  const tahun     = countBy('tahun_mula');
+
+  const kKeys = Object.keys(kelayakan); const kVals = kKeys.map(k => kelayakan[k]);
+  const jKeys = Object.keys(jantina);   const jVals = jKeys.map(k => jantina[k]);
+  const bKeys = Object.keys(bidang);    const bVals = bKeys.map(k => bidang[k]);
+  const gKeys = Object.keys(gred).sort(); const gVals = gKeys.map(k => gred[k]);
+  const tKeys = Object.keys(tahun).sort(); const tVals = tKeys.map(k => tahun[k]);
+
+  makeChart('chartKelayakan',     'bar',    kKeys, kVals, ['#b44aff','#00f5ff','#0080ff']);
+  makeChart('chartJantina',       'doughnut', jKeys, jVals, ['#0080ff','#ff2d78']);
+  makeChart('chartBidang',        'doughnut', bKeys, bVals, ['#00f5ff','#b44aff','#ff2d78','#00ff9d','#ffe600']);
+  makeChart('chartGred',          'bar',    gKeys, gVals, NEON);
+  makeChart('chartTahun',         'bar',    tKeys, tVals, ['#00f5ff']);
+  makeChart('chartStatus',        'pie',    ['Tetap','Kontrak'], [
+    pensyarahData.filter(p => p.status === 'Tetap').length,
+    pensyarahData.filter(p => p.status === 'Kontrak').length
+  ], ['#00ff9d','#ff2d78']);
+
+  // home page mini charts
+  makeChart('chartKelayakanHome', 'bar',    kKeys, kVals, ['#b44aff','#00f5ff','#0080ff']);
+  makeChart('chartJantinaHome',   'doughnut', jKeys, jVals, ['#0080ff','#ff2d78']);
+}
+
+// ── INIT ──
+window.onload = function () {
+  renderTicker();
+  renderKPICards();
+  renderPensyarahGrid(pensyarahData);
+  renderTable();
+  setTimeout(renderCharts, 100);
+};
+</script>
+</body>
+</html>
